@@ -150,7 +150,8 @@ module.exports = {
   registerSingleDomain,
   registerMultipleDomains,
   scheduleRegistration,
-  hexonetApi // Export the hexonetApi instance
+  hexonetApi,
+  logger // Export the logger for testing purposes
 };
 
 // Run main function

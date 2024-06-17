@@ -9,7 +9,8 @@ const {
   registerSingleDomain, 
   registerMultipleDomains, 
   scheduleRegistration, 
-  hexonetApi 
+  hexonetApi,
+  logger // Import the logger for testing
 } = require('../index');
 const winston = require('winston');
 
@@ -20,18 +21,6 @@ const mock = new MockAdapter(hexonetApi);
 jest.mock('node-cron', () => ({
   schedule: jest.fn(),
 }));
-
-// Mock logger
-jest.mock('winston', () => {
-  const originalWinston = jest.requireActual('winston');
-  return {
-    ...originalWinston,
-    createLogger: jest.fn(() => ({
-      error: jest.fn(),
-      info: jest.fn(),
-    })),
-  };
-});
 
 describe('Domain Registration Bot', () => {
   afterEach(() => {
@@ -186,7 +175,6 @@ describe('Domain Registration Bot', () => {
 
   // Test error logging for registerSingleDomain
   test('registerSingleDomain logs error on failure', async () => {
-    const logger = winston.createLogger();
     const errorSpy = jest.spyOn(logger, 'error');
 
     mock.onGet('/domains/check').reply(500); // Simulate API error
@@ -199,7 +187,6 @@ describe('Domain Registration Bot', () => {
 
   // Test error logging for registerMultipleDomains
   test('registerMultipleDomains logs error on failure', async () => {
-    const logger = winston.createLogger();
     const errorSpy = jest.spyOn(logger, 'error');
 
     mock.onGet('/domains/check').reply(200, { status: 'available' });
@@ -214,7 +201,6 @@ describe('Domain Registration Bot', () => {
 
   // Test error logging for performRequest
   test('performRequest logs error on failure', async () => {
-    const logger = winston.createLogger();
     const errorSpy = jest.spyOn(logger, 'error');
 
     mock.onGet('/domains/check').reply(500); // Simulate API error
@@ -234,4 +220,42 @@ describe('Domain Registration Bot', () => {
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed'));
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed after'));
   }, 30000);
+
+  test('performRequest retries on failure', async () => {
+    mock.onGet('/domains/check').replyOnce(500).onGet('/domains/check').reply(200, { status: 'available' });
+
+    const requestConfig = {
+      method: 'get',
+      url: '/domains/check',
+      params: { domain: 'example.com', apikey: 'dummy', user: 'dummy' },
+    };
+
+    const data = await performRequest(requestConfig);
+    expect(data).toEqual({ status: 'available' });
+  }, 30000); // Increase timeout to 30 seconds
+
+  test('checkDomainAvailability returns availability status', async () => {
+    mock.onGet('/domains/check').reply(200, { status: 'available' });
+
+    const availability = await checkDomainAvailability('example.com');
+    expect(availability.status).toBe('available');
+  }, 30000); // Increase timeout to 30 seconds
+
+  test('registerDomain registers the domain', async () => {
+    mock.onPost('/domains/register').reply(200, { result: 'success' });
+
+    const registrationDetails = { apikey: 'dummy', user: 'dummy' };
+    const result = await registerDomain('example.com', registrationDetails);
+    expect(result.result).toBe('success');
+  }, 30000); // Increase timeout to 30 seconds
+
+  test('performMultipleChecks checks multiple domains concurrently', async () => {
+    mock.onGet('/domains/check').reply(200, { status: 'available' });
+
+    const domains = ['example1.com', 'example2.com'];
+    const results = await performMultipleChecks(domains);
+    expect(results.length).toBe(2);
+    expect(results[0].status).toBe('available');
+    expect(results[1].status).toBe('available');
+  }, 30000); // Increase timeout to 30 seconds
 });
