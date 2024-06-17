@@ -3,14 +3,22 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --detectOpenHandles --coverage"
+  },
+  "jest": {
+    "collectCoverage": true,
+    "coverageDirectory": "./coverage",
+    "collectCoverageFrom": [
+      "./index.js"
+    ]
   },
   "keywords": [],
-  "author": "",
+  "author": "rydyr",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "axios": "^1.7.2",
+    "axios-mock-adapter": "^1.22.0",
     "dotenv": "^16.4.5",
     "jest": "^29.7.0",
     "node-cron": "^3.0.3",
