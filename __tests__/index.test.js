@@ -10,7 +10,7 @@ const {
   registerMultipleDomains, 
   scheduleRegistration, 
   hexonetApi,
-  logger // Import the logger for testing
+  logger 
 } = require('../index');
 const winston = require('winston');
 
@@ -258,4 +258,97 @@ describe('Domain Registration Bot', () => {
     expect(results[0].status).toBe('available');
     expect(results[1].status).toBe('available');
   }, 30000); // Increase timeout to 30 seconds
+
+  // Test error handling for performRequest
+  test('performRequest logs and throws detailed error on failure', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onGet('/domains/check').reply(500, { message: 'Internal Server Error' });
+
+    const requestConfig = {
+      method: 'get',
+      url: '/domains/check',
+      params: { domain: 'example.com', apikey: 'dummy', user: 'dummy' },
+    };
+
+    await expect(performRequest(requestConfig)).rejects.toThrow('Failed after 5 retries: Internal Server Error');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Internal Server Error'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed after 5 retries: Internal Server Error'));
+  }, 30000);
+
+  // Test error handling for checkDomainAvailability
+  test('checkDomainAvailability handles network error', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onGet('/domains/check').networkError();
+
+    await expect(checkDomainAvailability('example.com')).rejects.toThrow('Network Error');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Network Error'));
+  }, 30000);
+
+  // Test error handling for registerDomain
+  test('registerDomain handles invalid response', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onPost('/domains/register').reply(400, { message: 'Bad Request' });
+
+    const registrationDetails = { apikey: 'dummy', user: 'dummy' };
+    await expect(registerDomain('example.com', registrationDetails)).rejects.toThrow('Failed after 5 retries: Bad Request');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Bad Request'));
+  }, 30000);
+
+  // Helper function to extract error message
+  function getErrorMessage(error) {
+    if (error.response) {
+      return error.response.data.message || JSON.stringify(error.response.data);
+    } else if (error.request) {
+      return 'No response received';
+    } else {
+      return error.message;
+    }
+  }
+
+  // Test error handling for performRequest
+  test('performRequest logs and throws detailed error on failure', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onGet('/domains/check').reply(500, { message: 'Internal Server Error' });
+
+    const requestConfig = {
+      method: 'get',
+      url: '/domains/check',
+      params: { domain: 'example.com', apikey: 'dummy', user: 'dummy' },
+    };
+
+    await expect(performRequest(requestConfig)).rejects.toThrow('Failed after 5 retries: Internal Server Error');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Internal Server Error'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed after 5 retries: Internal Server Error'));
+  }, 30000);
+
+  // Test error handling for checkDomainAvailability
+  test('checkDomainAvailability handles network error', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onGet('/domains/check').networkError();
+
+    await expect(checkDomainAvailability('example.com')).rejects.toThrow('Network Error');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Network Error'));
+  }, 30000);
+
+  // Test error handling for registerDomain
+  test('registerDomain handles invalid response', async () => {
+    const errorSpy = jest.spyOn(logger, 'error');
+
+    mock.onPost('/domains/register').reply(400, { message: 'Bad Request' });
+
+    const registrationDetails = { apikey: 'dummy', user: 'dummy' };
+    await expect(registerDomain('example.com', registrationDetails)).rejects.toThrow('Failed after 5 retries: Bad Request');
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Request failed (attempt 1): Bad Request'));
+  }, 30000);
 });

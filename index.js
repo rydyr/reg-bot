@@ -26,6 +26,17 @@ const hexonetApi = axios.create({
 const retryDelay = parseInt(process.env.RETRY_DELAY, 10) || 200; // 200 milliseconds by default
 const MAX_RETRIES = parseInt(process.env.MAX_RETRIES, 10) || 5; // Maximum number of retries
 
+// Helper function to extract error message
+function getErrorMessage(error) {
+  if (error.response) {
+    return error.response.data?.message || JSON.stringify(error.response.data);
+  } else if (error.request) {
+    return 'No response received';
+  } else {
+    return error.message;
+  }
+}
+
 // Function to perform API request with retry
 async function performRequest(requestConfig) {
   let retryCount = 0;
@@ -35,10 +46,11 @@ async function performRequest(requestConfig) {
       return response.data;
     } catch (error) {
       retryCount++;
-      logger.error(`Request failed (attempt ${retryCount}): ${error.message}`);
+      const errorMsg = getErrorMessage(error);
+      logger.error(`Request failed (attempt ${retryCount}): ${errorMsg}`);
       if (retryCount >= MAX_RETRIES) {
-        logger.error(`Failed after ${MAX_RETRIES} retries: ${error.message}`);
-        throw new Error(`Failed after ${MAX_RETRIES} retries: ${error.message}`);
+        logger.error(`Failed after ${MAX_RETRIES} retries: ${errorMsg}`);
+        throw new Error(`Failed after ${MAX_RETRIES} retries: ${errorMsg}`);
       }
       await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
@@ -88,12 +100,13 @@ async function registerSingleDomain(domain, registrationDetails) {
     if (availability.status === 'available') {
       // Register domain
       const registrationResponse = await registerDomain(domain, registrationDetails);
-      logger.info(`Domain ${domain} registered successfully: ${registrationResponse}`);
+      logger.info(`Domain ${domain} registered successfully: ${JSON.stringify(registrationResponse)}`);
     } else {
       logger.info(`Domain ${domain} is not available.`);
     }
   } catch (error) {
-    logger.error(`Error registering domain ${domain}: ${error.message}`);
+    const errorMsg = getErrorMessage(error);
+    logger.error(`Error registering domain ${domain}: ${errorMsg}`);
   }
 }
 
@@ -104,12 +117,13 @@ async function registerMultipleDomains(domains, registrationDetails) {
     try {
       if (results[i].status === 'available') {
         const registrationResponse = await registerDomain(domains[i], registrationDetails);
-        logger.info(`Domain ${domains[i]} registered successfully: ${registrationResponse}`);
+        logger.info(`Domain ${domains[i]} registered successfully: ${JSON.stringify(registrationResponse)}`);
       } else {
         logger.info(`Domain ${domains[i]} is not available.`);
       }
     } catch (error) {
-      logger.error(`Error registering domain ${domains[i]}: ${error.message}`);
+      const errorMsg = getErrorMessage(error);
+      logger.error(`Error registering domain ${domains[i]}: ${errorMsg}`);
     }
   }
 }
